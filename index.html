@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle Strategy Visualiser</title>
+    <style>
+        :root {
+            --bg-color: #121213;
+            --text-color: #ffffff;
+            --green: #538d4e;
+            --yellow: #b59f3b;
+            --gray: #3a3a3c;
+            --light-gray: #818384;
+            --border-color: #333;
+            --panel-bg: #1e1e1e;
+            --red: #e74c3c;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .main-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .left-column, .right-column {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        @media (min-width: 900px), (orientation: landscape) and (min-width: 600px) {
+            .main-layout {
+                flex-direction: row;
+                max-width: 1400px;
+                align-items: flex-start;
+                gap: 30px;
+            }
+            
+            .left-column {
+                flex: 0 0 calc(50% - 15px);
+                position: sticky;
+                top: 20px;
+                max-height: calc(100vh - 40px);
+                overflow-y: auto;
+                overflow-x: hidden;
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            
+            .left-column::-webkit-scrollbar {
+                display: none;
+            }
+
+            .right-column {
+                flex: 1;
+                min-width: 0;
+            }
+            
+            .action-container, #stats-wrapper, .controls-container, #grid-container, #tree-container {
+                max-width: 100% !important;
+            }
+
+            #view-switcher {
+                display: none !important;
+            }
+
+            #grid-container {
+                display: flex !important;
+            }
+            
+            #tree-container {
+                display: block !important;
+            }
+        }
+
+        .title-container {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .wordle-title {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            max-width: 380px;
+            margin: 0 auto 8px auto;
+        }
+
+        .title-tile {
+            flex: 1 1 0;
+            aspect-ratio: 1 / 1;
+            max-width: 56px;
+            
+            border: 2.5px solid #565758;
+            font-size: clamp(20px, 7vw, 32px);
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            box-sizing: border-box;
+            animation: popIn 0.3s ease-in-out;
+        }
+
+        .title-tile.green {
+            background-color: var(--green);
+            border-color: var(--green);
+        }
+
+        .title-tile.gray {
+            background-color: var(--gray);
+            border-color: var(--gray);
+        }
+
+        .title-tile.yellow {
+            background-color: var(--yellow);
+            border-color: var(--yellow);
+        }
+
+        .subtitle {
+            letter-spacing: 5px;
+            font-size: 15px;
+            color: var(--light-gray);
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-top: 25px;
+        }
+
+        .action-container {
+            max-width: 600px;
+            margin: 0 auto 15px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            box-sizing: border-box;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 16px;
+            cursor: pointer;
+            background-color: var(--green);
+            color: #fff;
+            border: 1.5px solid var(--green);
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 12px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-action:hover {
+            background-color: #6aaa64;
+            border-color: #6aaa64;
+            transform: translateY(-1px);
+        }
+
+        .info-link-btn {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 20px;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+
+        .info-link-btn:hover {
+            background: none;
+            border: none;
+            color: #ffffff;
+        }
+
+        .stat-pop {
+            animation: popIncrement 1.5s ease-in-out 1;
+        }
+
+        @keyframes popIncrement {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.25); color: #6aaa64; }
+            100% { transform: scale(1); color: inherit; }
+        }
+
+        .upload-icon {
+            font-size: 13px;
+        }
+
+        #stats-wrapper {
+            max-width: 600px;
+            margin: 0 auto 20px auto;
+            background: var(--panel-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .stats-summary {
+            padding: 12px 16px;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 1.5px;
+            color: var(--light-gray);
+            text-transform: uppercase;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .stats-summary:hover {
+            color: #ffffff;
+        }
+
+        .stats-summary-arrow {
+            font-size: 10px;
+            transition: transform 0.2s ease;
+        }
+
+        #stats-wrapper[open] .stats-summary-arrow {
+            transform: rotate(180deg);
+        }
+
+        #stats-container {
+            padding: 0 15px 15px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-sizing: border-box;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .grid-1x2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .grid-2x2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .tries-six-container {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .stat-box {
+            background: #2a2a2a;
+            border-radius: 6px;
+            padding: 12px 8px;
+            flex: 1;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-sizing: border-box;
+            position: relative;
+            transition: background-color 0.3s ease;
+        }
+
+        .stat-val {
+            font-size: 22px;
+            font-weight: bold;
+            color: var(--green);
+            margin-bottom: 4px;
+            transition: color 0.3s ease;
+        }
+
+        .stat-box.small .stat-val {
+            font-size: 18px;
+            color: var(--text-color);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--light-gray);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-btn {
+            position: absolute;
+            top: 4px;
+            left: 6px;
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 2px;
+            user-select: none;
+            opacity: 0.85;
+            transition: opacity 0.2s ease;
+        }
+
+        .info-btn:hover {
+            color: #ffffff;
+            opacity: 1;
+        }
+
+        .stat-download-svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+            display: block;
+        }
+
+        .btn-icon-svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .controls-container {
+            max-width: 600px;
+            margin: 0 auto 15px auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .search-box {
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 0;
+            height: 38px;
+            padding: 0 12px;
+            background: #2a2a2a;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: #fff;
+            font-size: 14px;
+            letter-spacing: 1px;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .search-input:focus {
+            border-color: var(--green);
+        }
+
+        .search-btn {
+            height: 38px;
+            padding: 0 16px;
+            background: var(--green);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 12px;
+            transition: background 0.2s;
+            box-sizing: border-box;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .search-btn:hover {
+            background: #6aaa64;
+        }
+
+        .search-msg {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--red);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+            width: 100%;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 4px 0;
+        }
+
+        .view-switcher {
+            display: inline-flex;
+            background-color: #2a2a2a;
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+
+        .view-btn {
+            background: transparent;
+            border: none;
+            color: var(--light-gray);
+            padding: 6px 18px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .view-btn.active {
+            background-color: var(--gray);
+            color: var(--text-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .view-btn:hover:not(.active) {
+            color: #fff;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        #grid-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--panel-bg);
+            padding: 24px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        .grid-search-banner {
+            width: 100%;
+            max-width: 360px;
+            min-height: 84px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 12px 14px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            box-sizing: border-box;
+            gap: 12px;
+        }
+
+        .badge-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 0;
+        }
+
+        .badge-info {
+            padding: 6px 18px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            user-select: none;
+            line-height: 1;
+            margin: 0;
+        }
+
+        .badge-info.green {
+            background-color: var(--green);
+            color: #fff;
+        }
+
+        .words-left-text {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--light-gray);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin: 0;
+            line-height: 1;
+        }
+
+        .words-left-num {
+            color: var(--green);
+            font-weight: 800;
+            font-size: 15px;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .candidates-words {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+            width: 100%;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        .candidate-tag {
+            width: calc((100% - 16px) / 3); 
+            flex: 0 0 auto;
+            background-color: #121213;
+            color: var(--text-color);
+            font-weight: 700;
+            padding: 8px 0;
+            border-radius: 6px;
+            font-size: 12px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border: 1px solid #3a3a3c;
+            animation: popIn 0.2s ease-in-out;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        .grid-and-arrows-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .wordle-grid {
+            display: grid;
+            grid-template-rows: repeat(6, 1fr);
+            gap: 6px;
+        }
+
+        .grid-arrows-column {
+            display: grid;
+            grid-template-rows: repeat(6, 1fr);
+            gap: 6px;
+            align-items: center;
+        }
+
+        .grid-row-jump-btn {
+            width: 24px;
+            height: 52px;
+            background: none;
+            border: none;
+            color: var(--light-gray);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: color 0.2s ease, opacity 0.2s ease;
+            padding: 0;
+            user-select: none;
+            opacity: 0.7;
+        }
+
+        .grid-row-jump-btn:hover {
+            color: #ffffff;
+            opacity: 1;
+        }
+
+        .grid-row-jump-placeholder {
+            width: 24px;
+            height: 52px;
+        }
+
+        .grid-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+        }
+
+        .grid-tile {
+            width: 52px;
+            height: 52px;
+            border: 2px solid #3a3a3c;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            user-select: none;
+            background-color: #121213;
+            color: #fff;
+            box-sizing: border-box;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .grid-row.active .grid-tile {
+            cursor: pointer;
+            border-color: #565758;
+        }
+
+        .grid-tile.state-y {
+            background-color: var(--yellow);
+            border-color: var(--yellow);
+        }
+
+        .grid-tile.state-g {
+            background-color: var(--green);
+            border-color: var(--green);
+        }
+
+        .grid-tile.state-_ {
+            background-color: var(--gray);
+            border-color: var(--gray);
+        }
+
+        .grid-actions {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+            max-width: 360px;
+        }
+
+        .btn-grid {
+            flex: 1;
+            height: 42px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: background-color 0.2s ease, opacity 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .btn-reset {
+            background-color: var(--gray);
+            color: #fff;
+        }
+
+        .btn-reset:hover {
+            background-color: #565758;
+        }
+
+        .btn-back {
+            background-color: var(--yellow);
+            color: #fff;
+        }
+
+        .btn-back:hover {
+            background-color: #c9b458;
+        }
+
+        .btn-enter {
+            background-color: var(--green);
+            color: #fff;
+        }
+
+        .btn-enter:hover {
+            background-color: #6aaa64;
+        }
+
+        .btn-grid:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .grid-msg {
+            margin-top: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--red);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+            height: 16px;
+        }
+
+        #tree-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--panel-bg);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            box-sizing: border-box;
+        }
+
+        .word-row {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .letter {
+            width: 26px;
+            height: 26px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+
+        .letter.g { background-color: var(--green); }
+        .letter.y { background-color: var(--yellow); }
+        .letter._ { background-color: var(--gray); }
+        
+        #tree-container details {
+            margin-left: 8px;
+            border-left: 2px solid var(--border-color);
+            padding-left: 8px;
+            margin-top: 6px;
+        }
+
+        #tree-container summary {
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+            padding: 6px 0;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+
+        #tree-container summary:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        #tree-container summary.highlighted-tree-node {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+
+        #tree-container summary::-webkit-details-marker { display: none; }
+        
+        .arrow {
+            font-size: 10px;
+            color: #888;
+            transition: transform 0.2s;
+            width: 14px;
+            display: inline-block;
+            text-align: center;
+        }
+
+        #tree-container details[open] > summary .arrow {
+            transform: rotate(90deg);
+        }
+        
+        .next-guess {
+            margin: 6px 0 6px 20px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #bbb;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            letter-spacing: 1px;
+        }
+
+        .next-guess::before {
+            content: '▶';
+            color: #666;
+            font-size: 16px;
+        }
+
+        .win {
+            margin-left: 8px;
+            font-size: 14px;
+            color: var(--green);
+            font-weight: bold;
+        }
+
+        .root-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            text-align: center;
+            letter-spacing: 4px;
+            color: #fff;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        @media (max-width: 480px) {
+            .grid-tile {
+                width: 44px;
+                height: 44px;
+                font-size: 20px;
+            }
+            .grid-row-jump-btn, .grid-row-jump-placeholder {
+                height: 44px;
+            }
+            .grid-actions {
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-layout">
+        <div class="left-column">
+            <div class="title-container">
+                <div class="wordle-title">
+                    <div class="title-tile green">W</div>
+                    <div class="title-tile gray">O</div>
+                    <div class="title-tile yellow">R</div>
+                    <div class="title-tile green">D</div>
+                    <div class="title-tile gray">L</div>
+                    <div class="title-tile yellow">E</div>
+                </div>
+                <div class="subtitle">Strategy Visualiser</div>
+            </div>
+
+            <div class="action-container">
+                <a href="https://github.com/nkoppel/OptimalWordleSolver" target="_blank" class="info-link-btn" title="Instructions on generating custom solution.txt">ⓘ</a>
+                <label class="btn-action">
+                    <input type="file" id="file-upload" accept=".txt" />
+                    <span class="upload-icon">📂</span> Upload
+                </label>
+            </div>
+
+            <details id="stats-wrapper" class="hidden" open>
+                <summary class="stats-summary">
+                    <span>Statistics</span>
+                    <span class="stats-summary-arrow">▼</span>
+                </summary>
+                <div id="stats-container">
+                    <div class="grid-1x2">
+                        <div class="stat-box">
+                            <div class="stat-val" id="stat-avg">0.00</div>
+                            <div class="stat-label">Average Tries</div>
+                        </div>
+                        <div class="stat-box" id="stat-total-box">
+                            <button class="info-btn" onclick="downloadAllTotalWords()" title="Download total target word list">
+                                <svg class="stat-download-svg" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                            </button>
+                            <div class="stat-val" id="stat-total" style="color: var(--yellow);">0</div>
+                            <div class="stat-label">Total Words</div>
+                        </div>
+                    </div>
+                    <div class="grid-2x2" id="distribution-row"></div>
+                    <div class="tries-six-container hidden" id="six-tries-row"></div>
+                </div>
+            </details>
+
+            <div class="controls-container">
+                <div class="search-box">
+                    <input type="text" id="search-input" class="search-input" placeholder="Search target word..." maxlength="5">
+                    <button id="search-btn" class="search-btn">
+                        <svg class="btn-icon-svg" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 11.99 14 9.5 11.99 14 9.5 11.99 14 9.5 14z"/></svg>
+                    </button>
+                </div>
+                <div id="search-msg" class="search-msg"></div>
+
+                <div class="view-switcher" id="view-switcher">
+                    <button class="view-btn active" id="btn-view-grid">Grid</button>
+                    <button class="view-btn" id="btn-view-tree">Tree</button>
+                </div>
+            </div>
+
+            <div id="grid-container">
+                <div id="grid-search-banner" class="grid-search-banner hidden">
+                    <div id="grid-count-text" class="words-left-text hidden">
+                        <span id="grid-count-num" class="words-left-num">0</span> WORDS LEFT
+                    </div>
+                    <div class="candidates-words" id="candidates-words"></div>
+                </div>
+
+                <div class="grid-and-arrows-wrapper">
+                    <div class="wordle-grid" id="wordle-grid"></div>
+                    <div class="grid-arrows-column" id="grid-arrows-column"></div>
+                </div>
+
+                <div class="grid-actions">
+                    <button class="btn-grid btn-reset" id="grid-reset-btn">
+                        <svg class="btn-icon-svg" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                        Reset
+                    </button>
+                    <button class="btn-grid btn-back" id="grid-back-btn">
+                        <svg class="btn-icon-svg" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                        Back
+                    </button>
+                    <button class="btn-grid btn-enter" id="grid-enter-btn">
+                        <svg class="btn-icon-svg" viewBox="0 0 24 24"><path d="M19 7v4H5.83l3.58-3.59L8 6l-6 6 6 6 1.41-1.41L5.83 13H21V7h-2z"/></svg>
+                        Enter
+                    </button>
+                </div>
+
+                <div id="grid-msg" class="grid-msg"></div>
+            </div>
+        </div>
+
+        <div class="right-column">
+            <div id="tree-container" class="hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        let rawTxtContent = "";
+        let globalRootNode = null;
+        let globalSolutionsList = [];
+        let currentCalculatedPath = null;
+        let currentSearchTarget = "";
+        let wordsByTriesMap = {};
+        let gridMsgTimer = null;
+        let searchMsgTimer = null;
+
+        let currentTotalWords = 0;
+        let currentTotalTriesSum = 0;
+        let currentDistribution = {};
+
+        let currentActiveRow = 0;
+        let gridGuesses = Array(6).fill('');
+        let gridStates = Array(6).fill(null).map(() => Array(5).fill('_'));
+        let gridNodePath = []; 
+
+        const DOWNLOAD_SVG_ICON = `<svg class="stat-download-svg" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`;
+
+        function clearTreeHighlight() {
+            document.querySelectorAll('.highlighted-tree-node').forEach(el => el.classList.remove('highlighted-tree-node'));
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            window.addEventListener('pointerdown', clearTreeHighlight);
+
+            fetch('./solution.txt')
+                .then(response => {
+                    if (!response.ok) throw new Error('Default file not found');
+                    return response.text();
+                })
+                .then(text => processData(text, true))
+                .catch(err => {
+                    console.log('Auto-load notice:', err);
+                });
+        });
+
+        document.getElementById('file-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                processData(text, true);
+            };
+            reader.readAsText(file);
+        });
+
+        document.getElementById('search-btn').addEventListener('click', handleSearch);
+        document.getElementById('search-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSearch();
+        });
+
+        document.getElementById('btn-view-grid').addEventListener('click', () => switchView('grid'));
+        document.getElementById('btn-view-tree').addEventListener('click', () => switchView('tree'));
+
+        function switchView(view) {
+            const treeContainer = document.getElementById('tree-container');
+            const gridContainer = document.getElementById('grid-container');
+            const btnTree = document.getElementById('btn-view-tree');
+            const btnGrid = document.getElementById('btn-view-grid');
+
+            if (view === 'grid') {
+                gridContainer.classList.remove('hidden');
+                treeContainer.classList.add('hidden');
+                btnGrid.classList.add('active');
+                btnTree.classList.remove('active');
+            } else {
+                treeContainer.classList.remove('hidden');
+                gridContainer.classList.add('hidden');
+                btnTree.classList.add('active');
+                btnGrid.classList.remove('active');
+            }
+        }
+
+        const isFeedback = (token) => /^[yg_]{5}$/.test(token);
+
+        function showGridMessage(msg) {
+            const msgEl = document.getElementById('grid-msg');
+            msgEl.innerText = msg;
+            if (gridMsgTimer) clearTimeout(gridMsgTimer);
+            gridMsgTimer = setTimeout(() => {
+                msgEl.innerText = '';
+            }, 3000);
+        }
+
+        function showSearchMessage(msg) {
+            const msgEl = document.getElementById('search-msg');
+            msgEl.innerText = msg;
+            if (searchMsgTimer) clearTimeout(searchMsgTimer);
+            searchMsgTimer = setTimeout(() => {
+                msgEl.innerText = '';
+            }, 3000);
+        }
+
+        function computeFeedback(guess, target) {
+            guess = guess.toLowerCase();
+            target = target.toLowerCase();
+            let res = ['_', '_', '_', '_', '_'];
+            let targetArr = target.split('');
+
+            for (let i = 0; i < 5; i++) {
+                if (guess[i] === target[i]) {
+                    res[i] = 'g';
+                    targetArr[i] = null;
+                }
+            }
+            for (let i = 0; i < 5; i++) {
+                if (res[i] !== 'g') {
+                    let idx = targetArr.indexOf(guess[i]);
+                    if (idx !== -1) {
+                        res[i] = 'y';
+                        targetArr[idx] = null;
+                    }
+                }
+            }
+            return res.join('');
+        }
+
+        function filterCandidates(candidates, guess, feedback) {
+            return candidates.filter(word => computeFeedback(guess, word) === feedback);
+        }
+
+        function getRemainingCandidates() {
+            let candidates = [...new Set(globalSolutionsList)];
+            for (let i = 0; i <= currentActiveRow; i++) {
+                if (!gridGuesses[i]) continue;
+                const g = gridGuesses[i].toLowerCase();
+                const fb = gridStates[i].join('');
+                candidates = filterCandidates(candidates, g, fb);
+            }
+            return candidates;
+        }
+
+        function updateCandidatesUI() {
+            const banner = document.getElementById('grid-search-banner');
+            const countText = document.getElementById('grid-count-text');
+            const countNum = document.getElementById('grid-count-num');
+            const wordsEl = document.getElementById('candidates-words');
+
+            const feedback = gridStates[currentActiveRow].join('');
+            const candidates = getRemainingCandidates();
+            const count = candidates.length;
+
+            if ((count === 2 || count === 3) && feedback !== 'ggggg') {
+                countNum.innerText = count;
+                countText.classList.remove('hidden');
+                banner.classList.remove('hidden');
+
+                wordsEl.innerHTML = '';
+                candidates.forEach(word => {
+                    const tag = document.createElement('span');
+                    tag.className = 'candidate-tag';
+                    tag.innerText = word.toUpperCase();
+                    wordsEl.appendChild(tag);
+                });
+            } else {
+                countText.classList.add('hidden');
+                wordsEl.innerHTML = '';
+                banner.classList.add('hidden');
+            }
+        }
+
+        function stripComments(text) {
+            let cleaned = text.replace(/\/\*[\s\S]*?\*\//g, '');
+            cleaned = cleaned.replace(/\/\/.*/g, '');
+            return cleaned;
+        }
+
+        function processData(text, resetSearch = false) {
+            rawTxtContent = text.trim();
+            const cleanedText = stripComments(text);
+            const lines = cleanedText.split('\n');
+            let root = null;
+            
+            let totalWords = 0;
+            let totalTries = 0;
+            let distribution = {};
+            wordsByTriesMap = {};
+            globalSolutionsList = [];
+            
+            for (let line of lines) {
+                const tokens = line.trim().split(/\s+/);
+                if (tokens.length === 0 || tokens[0] === "") continue;
+                
+                const hasWin = tokens.includes("ggggg");
+                const triesCount = tokens.filter(isFeedback).length;
+                
+                if (hasWin && triesCount > 0) {
+                    totalWords++;
+                    totalTries += triesCount;
+                    distribution[triesCount] = (distribution[triesCount] || 0) + 1;
+                }
+
+                let i = 0;
+                let currentGuess = "";
+                
+                if (!isFeedback(tokens[0])) {
+                    currentGuess = tokens[0].toLowerCase();
+                    i++;
+                } else {
+                    if (!root) continue; 
+                    currentGuess = root.guess;
+                }
+                
+                if (!root) root = { guess: currentGuess, branches: {} };
+                
+                let currentNode = root;
+                
+                while (i < tokens.length) {
+                    let feedback = tokens[i];
+                    i++;
+                    
+                    if (i < tokens.length) {
+                        let nextGuess = tokens[i].toLowerCase();
+                        i++;
+                        
+                        if (!currentNode.branches[feedback]) {
+                            currentNode.branches[feedback] = { guess: nextGuess, branches: {} };
+                        }
+                        currentNode = currentNode.branches[feedback];
+                        currentGuess = nextGuess;
+                    } else {
+                        currentNode.branches[feedback] = null; 
+                        if (feedback === 'ggggg') {
+                            globalSolutionsList.push(currentGuess);
+                            if (!wordsByTriesMap[triesCount]) {
+                                wordsByTriesMap[triesCount] = [];
+                            }
+                            wordsByTriesMap[triesCount].push(currentGuess.toUpperCase());
+                        }
+                    }
+                }
+            }
+            
+            globalRootNode = root;
+            currentTotalWords = totalWords;
+            currentTotalTriesSum = totalTries;
+            currentDistribution = distribution;
+
+            renderStats(totalWords, totalTries, distribution);
+            renderTree(root);
+            initGridUI();
+            if (resetSearch) clearSearch();
+        }
+
+        function initGridUI() {
+            currentActiveRow = 0;
+            gridGuesses = Array(6).fill('');
+            gridStates = Array(6).fill(null).map(() => Array(5).fill('_'));
+            gridNodePath = [];
+
+            if (globalRootNode) {
+                gridGuesses[0] = globalRootNode.guess.toUpperCase();
+                gridNodePath.push(globalRootNode);
+            }
+
+            document.getElementById('grid-count-text').classList.add('hidden');
+            document.getElementById('candidates-words').innerHTML = '';
+            
+            document.getElementById('grid-back-btn').classList.remove('hidden');
+            document.getElementById('grid-enter-btn').classList.remove('hidden');
+
+            renderGrid();
+            document.getElementById('grid-enter-btn').disabled = false;
+        }
+
+        function renderGrid() {
+            const gridEl = document.getElementById('wordle-grid');
+            const arrowsEl = document.getElementById('grid-arrows-column');
+            gridEl.innerHTML = '';
+            arrowsEl.innerHTML = '';
+
+            for (let r = 0; r < 6; r++) {
+                const rowEl = document.createElement('div');
+                rowEl.className = `grid-row ${r === currentActiveRow ? 'active' : ''}`;
+                const word = gridGuesses[r] || '';
+                const feedback = gridStates[r].join('');
+
+                for (let c = 0; c < 5; c++) {
+                    const tile = document.createElement('div');
+                    const letter = word[c] || '';
+                    const state = gridStates[r][c];
+
+                    tile.className = `grid-tile state-${state}`;
+                    tile.innerText = letter;
+
+                    if (r === currentActiveRow && word) {
+                        tile.addEventListener('click', () => toggleTileState(r, c));
+                    }
+
+                    rowEl.appendChild(tile);
+                }
+
+                gridEl.appendChild(rowEl);
+
+                if (word && word.length === 5 && r <= currentActiveRow && feedback !== 'ggggg') {
+                    const jumpBtn = document.createElement('button');
+                    jumpBtn.className = 'grid-row-jump-btn';
+                    jumpBtn.innerHTML = '▶';
+                    jumpBtn.title = 'Jump to this branch in Tree view';
+                    jumpBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        jumpToTreeNode(r);
+                    });
+                    arrowsEl.appendChild(jumpBtn);
+                } else {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'grid-row-jump-placeholder';
+                    arrowsEl.appendChild(placeholder);
+                }
+            }
+        }
+
+        function jumpToTreeNode(rowIndex) {
+            let pathSequence = [];
+            for (let i = 0; i <= rowIndex; i++) {
+                if (!gridGuesses[i]) break;
+                pathSequence.push({
+                    guess: gridGuesses[i].toLowerCase(),
+                    feedback: gridStates[i].join('')
+                });
+            }
+
+            switchView('tree');
+
+            const treeContainer = document.getElementById('tree-container');
+            let currentScope = treeContainer;
+            let lastSummary = null;
+
+            for (let step of pathSequence) {
+                const detailsElements = Array.from(currentScope.children).filter(child => child.tagName === 'DETAILS');
+                let foundMatch = false;
+
+                for (let det of detailsElements) {
+                    const summary = det.querySelector('summary');
+                    if (!summary) continue;
+
+                    const summaryWordRow = summary.querySelector('.word-row');
+                    if (!summaryWordRow) continue;
+
+                    let summaryWord = '';
+                    let summaryFb = '';
+
+                    const letters = summaryWordRow.querySelectorAll('.letter');
+                    letters.forEach(l => {
+                        summaryWord += l.innerText.toLowerCase();
+                        if (l.classList.contains('g')) summaryFb += 'g';
+                        else if (l.classList.contains('y')) summaryFb += 'y';
+                        else summaryFb += '_';
+                    });
+
+                    if (summaryWord === step.guess && summaryFb === step.feedback) {
+                        det.open = true;
+                        currentScope = det;
+                        lastSummary = summary;
+                        foundMatch = true;
+                        break;
+                    }
+                }
+
+                if (!foundMatch) break;
+            }
+
+            if (lastSummary) {
+                clearTreeHighlight();
+                setTimeout(() => {
+                    lastSummary.classList.add('highlighted-tree-node');
+                    lastSummary.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 10);
+            } else {
+                showSearchMessage('Branch not found in tree');
+            }
+        }
+
+        function toggleTileState(row, col) {
+            if (row !== currentActiveRow) return;
+            const stateCycle = ['_', 'y', 'g'];
+            const currentState = gridStates[row][col];
+            const nextIndex = (stateCycle.indexOf(currentState) + 1) % stateCycle.length;
+            gridStates[row][col] = stateCycle[nextIndex];
+            renderGrid();
+        }
+
+        function handleGridEnter() {
+            if (currentActiveRow >= 6) return;
+
+            const currentGuess = gridGuesses[currentActiveRow];
+            if (!currentGuess || currentGuess.length !== 5) return;
+
+            const feedback = gridStates[currentActiveRow].join('');
+
+            if (feedback === 'ggggg') {
+                resetGridWithState();
+                return;
+            }
+
+            updateCandidatesUI();
+
+            let nextGuess = null;
+            let currentNode = gridNodePath[currentActiveRow];
+
+            if (currentNode && currentNode.branches && currentNode.branches[feedback]) {
+                const nextNode = currentNode.branches[feedback];
+                if (nextNode) {
+                    nextGuess = nextNode.guess;
+                    gridNodePath.push(nextNode);
+                }
+            } else {
+                let candidates = getRemainingCandidates();
+
+                if (candidates.length > 0) {
+                    nextGuess = candidates[0];
+                    gridNodePath.push(null);
+                } else {
+                    showGridMessage("No words found");
+                    
+                    const hasColors = gridStates[currentActiveRow].some(state => state !== '_');
+                    if (!hasColors) gridStates[currentActiveRow] = Array(5).fill('');
+
+                    handleGridBack();
+                    return;
+                }
+            }
+
+            if (currentActiveRow < 5) {
+                currentActiveRow++;
+                if (nextGuess) {
+                    gridGuesses[currentActiveRow] = nextGuess.toUpperCase();
+                }
+            } else {
+                document.getElementById('grid-enter-btn').disabled = true;
+            }
+
+            renderGrid();
+        }
+
+        function handleGridBack() {
+            const hasColors = gridStates[currentActiveRow].some(state => state !== '_');
+
+            if (hasColors) {
+                gridStates[currentActiveRow] = Array(5).fill('_');
+            } else if (currentActiveRow > 0) {
+                gridGuesses[currentActiveRow] = '';
+                if (gridNodePath.length > currentActiveRow) {
+                    gridNodePath.pop();
+                }
+                currentActiveRow--;
+            }
+
+            document.getElementById('grid-count-text').classList.add('hidden');
+            document.getElementById('candidates-words').innerHTML = '';
+            document.getElementById('grid-search-banner').classList.add('hidden');
+
+            document.getElementById('grid-enter-btn').disabled = false;
+            renderGrid();
+        }
+
+        function resetGridWithState() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('grid-search-banner').classList.add('hidden');
+            document.getElementById('grid-msg').innerText = '';
+            document.getElementById('search-msg').innerText = '';
+            currentCalculatedPath = null;
+            currentSearchTarget = "";
+            initGridUI();
+        }
+
+        document.getElementById('grid-enter-btn').addEventListener('click', handleGridEnter);
+        document.getElementById('grid-back-btn').addEventListener('click', handleGridBack);
+        document.getElementById('grid-reset-btn').addEventListener('click', resetGridWithState);
+
+        function findPathInTree(node, target, currentPath = []) {
+            if (!node) return null;
+
+            for (let feedback of Object.keys(node.branches)) {
+                const nextNode = node.branches[feedback];
+                const newPath = [...currentPath, { guess: node.guess, feedback: feedback }];
+
+                if (feedback === 'ggggg' && node.guess.toLowerCase() === target.toLowerCase()) {
+                    return newPath;
+                }
+
+                if (nextNode) {
+                    const res = findPathInTree(nextNode, target, newPath);
+                    if (res) return res;
+                }
+            }
+            return null;
+        }
+
+        function handleSearch() {
+            const searchInput = document.getElementById('search-input');
+            const targetWord = searchInput.value.trim().toLowerCase();
+
+            if (!/^[a-z]{5}$/.test(targetWord)) {
+                showSearchMessage('Invalid search term');
+                return;
+            }
+
+            if (!globalRootNode) {
+                showSearchMessage('Please load strategy data first');
+                return;
+            }
+
+            let path = findPathInTree(globalRootNode, targetWord);
+
+            if (!path) {
+                showSearchMessage('Word not found');
+                return;
+            }
+
+            currentCalculatedPath = null;
+            currentSearchTarget = targetWord;
+
+            renderGridSearchResult(targetWord, path);
+            
+            switchView('grid');
+        }
+
+        function renderGridSearchResult(targetWord, path) {
+            initGridUI();
+
+            document.getElementById('grid-back-btn').classList.add('hidden');
+            document.getElementById('grid-enter-btn').classList.add('hidden');
+
+            path.forEach((step, idx) => {
+                if (idx < 6) {
+                    gridGuesses[idx] = step.guess.toUpperCase();
+                    gridStates[idx] = step.feedback.split('');
+                }
+            });
+
+            currentActiveRow = Math.min(path.length - 1, 5);
+            updateCandidatesUI();
+            renderGrid();
+        }
+
+        function downloadWordsForTries(triesNum) {
+            const wordList = wordsByTriesMap[triesNum] || [];
+            const uniqueWords = [...new Set(wordList)];
+            uniqueWords.sort();
+            const content = uniqueWords.join("\n");
+
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${triesNum}_tries_words.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadAllTotalWords() {
+            const uniqueWords = [...new Set(globalSolutionsList.map(w => w.toUpperCase()))];
+            uniqueWords.sort();
+            const content = uniqueWords.join("\n");
+
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `solution_words.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('grid-search-banner').classList.add('hidden');
+            document.getElementById('grid-count-text').classList.add('hidden');
+            document.getElementById('candidates-words').innerHTML = '';
+            document.getElementById('grid-msg').innerText = '';
+            document.getElementById('search-msg').innerText = '';
+            currentCalculatedPath = null;
+            currentSearchTarget = "";
+        }
+
+        function renderStats(totalWords, totalTries, distribution) {
+            const wrapper = document.getElementById('stats-wrapper');
+            const sixRow = document.getElementById('six-tries-row');
+            
+            if (totalWords === 0) {
+                wrapper.classList.add('hidden');
+                sixRow.classList.add('hidden');
+                return;
+            }
+
+            wrapper.classList.remove('hidden');
+            
+            const avg = (totalTries / totalWords).toFixed(2);
+            document.getElementById('stat-avg').innerText = avg;
+            document.getElementById('stat-total').innerText = totalWords;
+
+            let dist2To5Html = '';
+
+            for (let i = 2; i <= 5; i++) {
+                const count = distribution[i] || 0;
+                dist2To5Html += `
+                    <div class="stat-box small" id="stat-box-${i}">
+                        <button class="info-btn" onclick="downloadWordsForTries(${i})" title="Download words solved in ${i} tries">${DOWNLOAD_SVG_ICON}</button>
+                        <div class="stat-val" id="stat-val-${i}">${count}</div>
+                        <div class="stat-label">${i} Tries</div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('distribution-row').innerHTML = dist2To5Html;
+
+            const countSix = distribution[6] || 0;
+            if (countSix > 0) {
+                sixRow.classList.remove('hidden');
+                sixRow.innerHTML = `
+                    <div class="stat-box small" id="stat-box-6">
+                        <button class="info-btn" onclick="downloadWordsForTries(6)" title="Download words solved in 6 tries">${DOWNLOAD_SVG_ICON}</button>
+                        <div class="stat-val" id="stat-val-6">${countSix}</div>
+                        <div class="stat-label">6 Tries</div>
+                    </div>
+                `;
+            } else {
+                sixRow.classList.add('hidden');
+                sixRow.innerHTML = '';
+            }
+        }
+
+        function createWordRow(word, feedback) {
+            let html = '<div class="word-row">';
+            for (let i = 0; i < 5; i++) {
+                const letter = word[i] ? word[i] : '';
+                const fbClass = feedback[i] ? feedback[i] : '_';
+                html += `<div class="letter ${fbClass}">${letter}</div>`;
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function buildHTML(node, parentGuess) {
+            if (!node || Object.keys(node.branches).length === 0) return '';
+            
+            let html = '';
+            const branches = Object.keys(node.branches).sort();
+            
+            for (let feedback of branches) {
+                const childNode = node.branches[feedback];
+                const isWin = (feedback === 'ggggg');
+                
+                html += `<details ${isWin ? 'open' : ''}>`;
+                html += '<summary>';
+                html += `<span class="arrow">${isWin ? ' ' : '▶'}</span>`;
+                html += createWordRow(parentGuess, feedback);
+                
+                if (isWin) {
+                    html += '<span class="win">🏆</span>';
+                }
+                html += '</summary>';
+                
+                if (childNode) {
+                    html += `<div class="next-guess">${childNode.guess.toUpperCase()}</div>`;
+                    html += buildHTML(childNode, childNode.guess);
+                }
+                
+                html += '</details>';
+            }
+            return html;
+        }
+
+        function renderTree(root) {
+            const container = document.getElementById('tree-container');
+            if (!root) {
+                container.innerHTML = '<p style="text-align:center; color: #ff5555;">Invalid file format.</p>';
+                return;
+            }
+            
+            let html = `<div class="root-title">Opener: ${root.guess}</div>`;
+            html += buildHTML(root, root.guess);
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
