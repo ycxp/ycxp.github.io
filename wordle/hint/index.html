@@ -71,6 +71,12 @@
                 <!-- Wordle Dynamic Grid -->
                 <div id="wordle-grid" class="flex flex-col gap-2 mb-6"></div>
 
+                <!-- Remaining Candidate Answers Panel -->
+                <div id="remaining-candidates-container" class="hidden w-full max-w-xs mb-6 bg-wordle-bg p-3 rounded-xl border border-wordle-border text-center">
+                    <div class="text-[11px] text-gray-400 mb-1 uppercase tracking-wider font-semibold">Remaining Answers</div>
+                    <div id="remaining-candidates-list" class="flex flex-wrap gap-1.5 justify-center text-xs font-mono font-bold text-emerald-400"></div>
+                </div>
+
                 <!-- Visualiser Controls -->
                 <div class="flex gap-2 w-full max-w-xs border-t border-wordle-border pt-4">
                     <button id="btn-reset" onclick="resetAssistantGrid()" class="flex-1 py-2 bg-wordle-border hover:bg-gray-700 text-xs font-bold rounded transition">RESET</button>
@@ -215,7 +221,7 @@
                     if (depth > maxDepthRecorded) maxDepthRecorded = depth;
 
                     if (candidateAnswers.length === 1) {
-                        return { guess: candidateAnswers[0], end: true, depth: depth };
+                        return { guess: candidateAnswers[0], end: true, depth: depth, candidates: candidateAnswers };
                     }
                     if (candidateAnswers.length === 0) return null;
 
@@ -270,11 +276,11 @@
                         }
                     }
 
-                    let node = { guess: bestGuess, children: {} };
+                    let node = { guess: bestGuess, children: {}, candidates: candidateAnswers };
                     for (let fb in bestBranches) {
                         let subCandidates = bestBranches[fb];
                         if (subCandidates.length === 1 && subCandidates[0] === bestGuess && fb === "22222") {
-                            node.children[fb] = { guess: bestGuess, solved: true };
+                            node.children[fb] = { guess: bestGuess, solved: true, candidates: subCandidates };
                         } else {
                             node.children[fb] = buildMinimaxTree(subCandidates, depth + 1);
                         }
@@ -704,6 +710,32 @@
 
                 gridContainer.appendChild(rowDiv);
             });
+
+            updateRemainingCandidatesDisplay();
+        }
+
+        function updateRemainingCandidatesDisplay() {
+            const container = document.getElementById('remaining-candidates-container');
+            const listContainer = document.getElementById('remaining-candidates-list');
+            listContainer.innerHTML = '';
+
+            if (!assistantState.freeConfirmed || !assistantState.currentNode) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            const candidates = assistantState.currentNode.candidates;
+            if (candidates && (candidates.length === 2 || candidates.length === 3)) {
+                candidates.forEach(word => {
+                    const span = document.createElement('span');
+                    span.className = "px-2 py-1 bg-wordle-card border border-wordle-border rounded";
+                    span.textContent = word;
+                    listContainer.appendChild(span);
+                });
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
         }
 
         function stepBackGrid() {
