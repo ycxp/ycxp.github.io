@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>800</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        wordle: {
+                            bg: '#121213',
+                            card: '#1a1a1b',
+                            border: '#3a3a3c',
+                            green: '#538d4e',
+                            yellow: '#b59f3b',
+                            gray: '#3a3a3c',
+                            empty: '#272729'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #121213; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #121213; }
+        ::-webkit-scrollbar-thumb { background: #3a3a3c; border-radius: 3px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-emerald-600 selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="border-b border-wordle-border bg-wordle-card px-4 py-2.5 sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <h1 class="text-base font-bold tracking-wide">800</h1>
+            <div class="flex bg-wordle-bg p-1 rounded-lg border border-wordle-border">
+                <button id="tab-visualiser-btn" onclick="switchTab('visualiser')" class="px-3 py-1 rounded text-xs font-medium transition bg-wordle-green text-white">Visualiser</button>
+                <button id="tab-solver-btn" onclick="switchTab('solver')" class="px-3 py-1 rounded text-xs font-medium text-gray-400 hover:text-white transition">Solver</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto w-full p-4 flex-grow">
+
+        <!-- Tab 1: Visualiser (Default) -->
+        <section id="section-visualiser" class="space-y-4">
+            <div class="bg-wordle-card p-3 rounded-xl border border-wordle-border flex justify-between items-center gap-2">
+                <div class="text-xs">
+                    <span class="text-gray-400">Strategy: </span>
+                    <span id="loaded-strategy-status" class="font-medium text-amber-400">Checking repository...</span>
+                </div>
+                <label class="px-3 py-1 bg-wordle-border hover:bg-gray-700 text-xs rounded cursor-pointer transition">
+                    Upload
+                    <input type="file" id="strategy-file" accept=".json,application/json,text/json" class="hidden" onchange="uploadStrategyFile(event)" />
+                </label>
+            </div>
+
+            <div class="bg-wordle-card p-6 rounded-xl border border-wordle-border flex flex-col items-center">
+                <!-- Direct Inline Free Green Tiles Container -->
+                <div id="free-green-container" class="mb-6 flex flex-col items-center">
+                    <div class="text-[11px] text-gray-400 mb-2 uppercase tracking-wider font-semibold">Hint</div>
+                    <div id="free-green-tiles" class="flex gap-2"></div>
+                </div>
+
+                <!-- Wordle Dynamic Grid -->
+                <div id="wordle-grid" class="flex flex-col gap-2 mb-6"></div>
+
+                <!-- Visualiser Controls -->
+                <div class="flex gap-2 w-full max-w-xs border-t border-wordle-border pt-4">
+                    <button id="btn-reset" onclick="resetAssistantGrid()" class="flex-1 py-2 bg-wordle-border hover:bg-gray-700 text-xs font-bold rounded transition">RESET</button>
+                    <button id="btn-back" onclick="stepBackGrid()" class="flex-1 py-2 bg-wordle-border hover:bg-gray-700 text-xs font-bold rounded transition">BACK</button>
+                    <button id="btn-enter" onclick="confirmRowFeedback()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold rounded transition">ENTER</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab 2: Solver -->
+        <section id="section-solver" class="hidden space-y-4">
+            <div class="bg-wordle-card p-4 rounded-xl border border-wordle-border space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-wordle-bg p-3 rounded-lg border border-wordle-border">
+                        <div class="flex justify-between items-center mb-1 text-xs font-medium">
+                            <span>Guesses</span>
+                            <span id="guess-count" class="text-gray-400">0 words</span>
+                        </div>
+                        <input type="file" id="guesses-file" accept=".txt" class="block w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-wordle-border file:text-white hover:file:bg-emerald-600 cursor-pointer"/>
+                    </div>
+
+                    <div class="bg-wordle-bg p-3 rounded-lg border border-wordle-border">
+                        <div class="flex justify-between items-center mb-1 text-xs font-medium">
+                            <span>Answers</span>
+                            <span id="answer-count" class="text-gray-400">0 words</span>
+                        </div>
+                        <input type="file" id="answers-file" accept=".txt" class="block w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-wordle-border file:text-white hover:file:bg-emerald-600 cursor-pointer"/>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-wordle-border">
+                    <div class="flex gap-2">
+                        <button id="calc-start-btn" onclick="startComputation()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-xs font-medium rounded transition">Start</button>
+                        <button id="calc-pause-btn" onclick="togglePauseComputation()" disabled class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-xs font-medium rounded transition disabled:opacity-40">
+                            <span id="pause-text">Pause</span>
+                        </button>
+                        <button id="calc-cancel-btn" onclick="cancelComputation()" disabled class="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-xs font-medium rounded transition disabled:opacity-40">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Panel -->
+            <div id="progress-panel" class="hidden bg-wordle-card p-4 rounded-xl border border-wordle-border space-y-3">
+                <div class="flex justify-between items-center text-xs">
+                    <span id="worker-status-text" class="text-emerald-400 font-medium">Processing...</span>
+                    <span id="worker-eta" class="text-gray-400 font-mono">ETA: --:--</span>
+                </div>
+                <div class="w-full bg-wordle-bg rounded-full h-2 overflow-hidden border border-wordle-border">
+                    <div id="progress-bar-fill" class="bg-emerald-500 h-full transition-all duration-300 w-0"></div>
+                </div>
+                <div class="grid grid-cols-4 gap-2 text-center text-xs">
+                    <div class="bg-wordle-bg p-2 rounded border border-wordle-border">
+                        <div class="text-gray-400 text-[10px]">Total</div>
+                        <div id="stat-states" class="font-bold mt-0.5">0</div>
+                    </div>
+                    <div class="bg-wordle-bg p-2 rounded border border-wordle-border">
+                        <div class="text-gray-400 text-[10px]">Done</div>
+                        <div id="stat-completed" class="font-bold text-emerald-400 mt-0.5">0</div>
+                    </div>
+                    <div class="bg-wordle-bg p-2 rounded border border-wordle-border">
+                        <div class="text-gray-400 text-[10px]">Depth</div>
+                        <div id="stat-depth" class="font-bold text-amber-400 mt-0.5">0</div>
+                    </div>
+                    <div class="bg-wordle-bg p-2 rounded border border-wordle-border">
+                        <div class="text-gray-400 text-[10px]">Time</div>
+                        <div id="stat-time" class="font-bold text-blue-400 mt-0.5 font-mono">00:00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Card -->
+            <div id="export-card" class="hidden bg-wordle-card p-4 rounded-xl border border-emerald-600/50 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <span class="text-xs text-emerald-400 font-medium flex items-center gap-2">
+                    <i class="fa-solid fa-check-circle"></i> Strategy Computed
+                </span>
+                <div class="flex gap-2">
+                    <button onclick="exportStrategyJSON()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-xs font-medium rounded transition">Download JSON</button>
+                    <button onclick="transferStrategyToAssistant()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-xs font-medium rounded transition">Use In Visualiser</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Hidden Worker Code -->
+    <script id="worker-code" type="text/plain">
+        function calculateFeedback(guess, answer) {
+            let res = [0, 0, 0, 0, 0];
+            let gArr = guess.split('');
+            let aArr = answer.split('');
+            let used = [false, false, false, false, false];
+
+            for (let i = 0; i < 5; i++) {
+                if (gArr[i] === aArr[i]) {
+                    res[i] = 2;
+                    used[i] = true;
+                }
+            }
+            for (let i = 0; i < 5; i++) {
+                if (res[i] === 2) continue;
+                for (let j = 0; j < 5; j++) {
+                    if (!used[j] && gArr[i] === aArr[j]) {
+                        res[i] = 1;
+                        used[j] = true;
+                        break;
+                    }
+                }
+            }
+            return res.join('');
+        }
+
+        let isPaused = false;
+        let isCancelled = false;
+
+        self.onmessage = async function(e) {
+            const { type, payload } = e.data;
+
+            if (type === 'PAUSE') { isPaused = true; return; }
+            if (type === 'RESUME') { isPaused = false; return; }
+            if (type === 'CANCEL') { isCancelled = true; return; }
+
+            if (type === 'START') {
+                isPaused = false;
+                isCancelled = false;
+
+                const { guesses, answers } = payload;
+                const answerSet = new Set(answers);
+                const strategyTree = {};
+
+                let freeStatesSet = new Set();
+                for (let ans of answers) {
+                    for (let pos = 0; pos < 5; pos++) {
+                        freeStatesSet.add(`${pos}:${ans[pos]}`);
+                    }
+                }
+
+                const freeStates = Array.from(freeStatesSet);
+                const totalStates = freeStates.length;
+                let completedStates = 0;
+                let maxDepthRecorded = 0;
+
+                function buildMinimaxTree(candidateAnswers, depth) {
+                    if (depth > maxDepthRecorded) maxDepthRecorded = depth;
+
+                    if (candidateAnswers.length === 1) {
+                        return { guess: candidateAnswers[0], end: true, depth: depth };
+                    }
+                    if (candidateAnswers.length === 0) return null;
+
+                    const candidateSet = new Set(candidateAnswers);
+                    let bestGuess = null;
+                    let bestWorstCase = Infinity;
+                    let bestBranches = null;
+
+                    for (let guess of guesses) {
+                        if (isCancelled) return null;
+
+                        let groups = {};
+                        for (let ans of candidateAnswers) {
+                            let fb = calculateFeedback(guess, ans);
+                            if (!groups[fb]) groups[fb] = [];
+                            groups[fb].push(ans);
+                        }
+
+                        let maxGroupSize = 0;
+                        for (let fb in groups) {
+                            if (groups[fb].length > maxGroupSize) {
+                                maxGroupSize = groups[fb].length;
+                            }
+                        }
+
+                        let isBetter = false;
+
+                        if (maxGroupSize < bestWorstCase) {
+                            isBetter = true;
+                        } else if (maxGroupSize === bestWorstCase && bestGuess !== null) {
+                            const currentIsCandidate = candidateSet.has(guess);
+                            const bestIsCandidate = candidateSet.has(bestGuess);
+
+                            if (currentIsCandidate && !bestIsCandidate) {
+                                isBetter = true;
+                            } else if (currentIsCandidate === bestIsCandidate) {
+                                const currentIsAnswer = answerSet.has(guess);
+                                const bestIsAnswer = answerSet.has(bestGuess);
+
+                                if (currentIsAnswer && !bestIsAnswer) {
+                                    isBetter = true;
+                                } else if (currentIsAnswer === bestIsAnswer) {
+                                    if (guess < bestGuess) isBetter = true;
+                                }
+                            }
+                        }
+
+                        if (isBetter) {
+                            bestWorstCase = maxGroupSize;
+                            bestGuess = guess;
+                            bestBranches = groups;
+                        }
+                    }
+
+                    let node = { guess: bestGuess, children: {} };
+                    for (let fb in bestBranches) {
+                        let subCandidates = bestBranches[fb];
+                        if (subCandidates.length === 1 && subCandidates[0] === bestGuess && fb === "22222") {
+                            node.children[fb] = { guess: bestGuess, solved: true };
+                        } else {
+                            node.children[fb] = buildMinimaxTree(subCandidates, depth + 1);
+                        }
+                    }
+                    return node;
+                }
+
+                for (let i = 0; i < totalStates; i++) {
+                    while (isPaused && !isCancelled) {
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+                    if (isCancelled) break;
+
+                    const stateKey = freeStates[i];
+                    const [posStr, letter] = stateKey.split(':');
+                    const pos = parseInt(posStr);
+
+                    const matchingAnswers = answers.filter(w => w[pos] === letter);
+                    if (matchingAnswers.length > 0) {
+                        strategyTree[stateKey] = buildMinimaxTree(matchingAnswers, 1);
+                    }
+
+                    completedStates++;
+                    self.postMessage({
+                        type: 'PROGRESS',
+                        payload: { completed: completedStates, total: totalStates, maxDepth: maxDepthRecorded }
+                    });
+                }
+
+                if (!isCancelled) {
+                    self.postMessage({ type: 'COMPLETE', payload: strategyTree });
+                }
+            }
+        };
+    </script>
+
+    <!-- UI Logic Scripts -->
+    <script>
+        let validGuesses = [];
+        let answerWords = [];
+        let computedStrategy = null;
+        let worker = null;
+        let workerStartTime = 0;
+        let timerInterval = null;
+
+        let assistantState = {
+            freePos: 0,
+            freeLetter: 'A',
+            freeConfirmed: false,
+            rows: [],
+            currentNode: null
+        };
+
+        function setCaretToEnd(el) {
+            setTimeout(() => {
+                el.setSelectionRange(el.value.length, el.value.length);
+            }, 0);
+        }
+
+        function fetchDefaultStrategy() {
+            fetch('./strategy.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    computedStrategy = data;
+                    document.getElementById('loaded-strategy-status').textContent = "strategy.json (Auto-loaded)";
+                    document.getElementById('loaded-strategy-status').className = "font-medium text-emerald-400";
+                })
+                .catch(error => {
+                    document.getElementById('loaded-strategy-status').textContent = "Nil";
+                    document.getElementById('loaded-strategy-status').className = "font-medium text-amber-400";
+                });
+        }
+
+        function createWorker() {
+            const workerBlob = new Blob([document.getElementById('worker-code').textContent], { type: 'text/javascript' });
+            return new Worker(URL.createObjectURL(workerBlob));
+        }
+
+        function switchTab(tab) {
+            const solverTab = document.getElementById('section-solver');
+            const visualiserTab = document.getElementById('section-visualiser');
+            const btnSolver = document.getElementById('tab-solver-btn');
+            const btnVisualiser = document.getElementById('tab-visualiser-btn');
+
+            if (tab === 'solver') {
+                solverTab.classList.remove('hidden');
+                visualiserTab.classList.add('hidden');
+                btnSolver.className = "px-3 py-1 rounded text-xs font-medium transition bg-wordle-green text-white";
+                btnVisualiser.className = "px-3 py-1 rounded text-xs font-medium text-gray-400 hover:text-white transition";
+            } else {
+                solverTab.classList.add('hidden');
+                visualiserTab.classList.remove('hidden');
+                btnVisualiser.className = "px-3 py-1 rounded text-xs font-medium transition bg-wordle-green text-white";
+                btnSolver.className = "px-3 py-1 rounded text-xs font-medium text-gray-400 hover:text-white transition";
+            }
+        }
+
+        document.getElementById('guesses-file').addEventListener('change', function(e) {
+            parseTxtFile(e.target.files[0], words => {
+                validGuesses = words;
+                document.getElementById('guess-count').textContent = `${words.length} words`;
+            });
+        });
+
+        document.getElementById('answers-file').addEventListener('change', function(e) {
+            parseTxtFile(e.target.files[0], words => {
+                answerWords = words;
+                document.getElementById('answer-count').textContent = `${words.length} words`;
+            });
+        });
+
+        function parseTxtFile(file, callback) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const words = evt.target.result.split(/\r?\n/)
+                    .map(w => w.trim().toUpperCase())
+                    .filter(w => w.length === 5 && /^[A-Z]+$/.test(w));
+                callback(words);
+            };
+            reader.readAsText(file);
+        }
+
+        function startComputation() {
+            if (validGuesses.length === 0 || answerWords.length === 0) {
+                alert("Please upload valid guess and answer txt files first!");
+                return;
+            }
+
+            document.getElementById('progress-panel').classList.remove('hidden');
+            document.getElementById('export-card').classList.add('hidden');
+            document.getElementById('calc-start-btn').disabled = true;
+            document.getElementById('calc-pause-btn').disabled = false;
+            document.getElementById('calc-cancel-btn').disabled = false;
+
+            if (worker) worker.terminate();
+            worker = createWorker();
+
+            workerStartTime = Date.now();
+            clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+
+            worker.onmessage = function(e) {
+                const { type, payload } = e.data;
+                if (type === 'PROGRESS') {
+                    updateWorkerProgress(payload);
+                } else if (type === 'COMPLETE') {
+                    computedStrategy = payload;
+                    onComputationComplete();
+                }
+            };
+
+            worker.postMessage({
+                type: 'START',
+                payload: { guesses: validGuesses, answers: answerWords }
+            });
+        }
+
+        function updateWorkerProgress(p) {
+            const pct = Math.round((p.completed / p.total) * 100);
+            document.getElementById('progress-bar-fill').style.width = `${pct}%`;
+            document.getElementById('stat-states').textContent = p.total;
+            document.getElementById('stat-completed').textContent = p.completed;
+            document.getElementById('stat-depth').textContent = p.maxDepth;
+            document.getElementById('worker-status-text').textContent = `Processing (${pct}%)`;
+
+            const elapsedSec = (Date.now() - workerStartTime) / 1000;
+            if (p.completed > 0) {
+                const remainingSec = Math.round((elapsedSec / p.completed) * (p.total - p.completed));
+                document.getElementById('worker-eta').textContent = `ETA: ${formatTime(remainingSec)}`;
+            }
+        }
+
+        function togglePauseComputation() {
+            const pauseBtnText = document.getElementById('pause-text');
+
+            if (pauseBtnText.textContent === "Pause") {
+                worker.postMessage({ type: 'PAUSE' });
+                pauseBtnText.textContent = "Resume";
+            } else {
+                worker.postMessage({ type: 'RESUME' });
+                pauseBtnText.textContent = "Pause";
+            }
+        }
+
+        function cancelComputation() {
+            if (worker) worker.postMessage({ type: 'CANCEL' });
+            clearInterval(timerInterval);
+            document.getElementById('progress-panel').classList.add('hidden');
+            document.getElementById('calc-start-btn').disabled = false;
+            document.getElementById('calc-pause-btn').disabled = true;
+            document.getElementById('calc-cancel-btn').disabled = true;
+        }
+
+        function onComputationComplete() {
+            clearInterval(timerInterval);
+            document.getElementById('worker-status-text').textContent = "Done!";
+            document.getElementById('export-card').classList.remove('hidden');
+            document.getElementById('calc-start-btn').disabled = false;
+            document.getElementById('calc-pause-btn').disabled = true;
+            document.getElementById('calc-cancel-btn').disabled = true;
+        }
+
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - workerStartTime) / 1000);
+            document.getElementById('stat-time').textContent = formatTime(elapsed);
+        }
+
+        function formatTime(sec) {
+            const m = Math.floor(sec / 60).toString().padStart(2, '0');
+            const s = (sec % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function exportStrategyJSON() {
+            if (!computedStrategy) return;
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(computedStrategy, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", "strategy.json");
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+        }
+
+        function transferStrategyToAssistant() {
+            if (!computedStrategy) return;
+            loadStrategyIntoAssistant(computedStrategy, "Direct Minimax Tree");
+            switchTab('visualiser');
+        }
+
+        function uploadStrategyFile(evt) {
+            const file = evt.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    computedStrategy = parsed;
+                    loadStrategyIntoAssistant(parsed, file.name);
+                } catch(err) {
+                    alert("Invalid JSON strategy file.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function loadStrategyIntoAssistant(strategy, name) {
+            computedStrategy = strategy;
+            document.getElementById('loaded-strategy-status').textContent = name || "Active Strategy Loaded";
+            document.getElementById('loaded-strategy-status').className = "font-medium text-emerald-400";
+            resetAssistantGrid();
+        }
+
+        function initFreeGreenSelector() {
+            const container = document.getElementById('free-green-tiles');
+            container.innerHTML = '';
+
+            for (let i = 0; i < 5; i++) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.maxLength = 1;
+                input.dataset.pos = i;
+                
+                let baseClasses = "w-11 h-11 border-2 rounded-lg text-center font-bold uppercase text-lg select-none transition focus:outline-none ";
+                
+                if (i === assistantState.freePos) {
+                    input.value = assistantState.freeLetter;
+                    input.className = baseClasses + "bg-wordle-green border-wordle-green text-white";
+                } else {
+                    input.value = '';
+                    input.className = baseClasses + "bg-wordle-empty border-wordle-border text-gray-500 hover:border-emerald-500";
+                }
+
+                input.addEventListener('focus', (e) => {
+                    if (assistantState.freeConfirmed) return;
+                    assistantState.freePos = i;
+                    renderFreeGreenSelector();
+                    setCaretToEnd(e.target);
+                });
+
+                input.addEventListener('click', (e) => {
+                    if (assistantState.freeConfirmed) return;
+                    setCaretToEnd(e.target);
+                });
+
+                input.addEventListener('keyup', (e) => {
+                    if (assistantState.freeConfirmed) return;
+                    setCaretToEnd(e.target);
+                });
+
+                input.addEventListener('input', (e) => {
+                    if (assistantState.freeConfirmed) return;
+                    let val = e.target.value.toUpperCase();
+                    if (/^[A-Z]$/.test(val)) {
+                        assistantState.freePos = i;
+                        assistantState.freeLetter = val;
+                        renderFreeGreenSelector();
+                        const currentInput = document.querySelectorAll('#free-green-tiles input')[i];
+                        if (currentInput) {
+                            currentInput.focus();
+                            setCaretToEnd(currentInput);
+                        }
+                    } else {
+                        e.target.value = '';
+                    }
+                });
+
+                container.appendChild(input);
+            }
+        }
+
+        function renderFreeGreenSelector() {
+            const inputs = document.querySelectorAll('#free-green-tiles input');
+            inputs.forEach((input, idx) => {
+                if (idx === assistantState.freePos) {
+                    input.value = assistantState.freeLetter;
+                    input.className = "w-11 h-11 border-2 rounded-lg text-center font-bold uppercase text-lg select-none transition focus:outline-none bg-wordle-green border-wordle-green text-white";
+                } else {
+                    input.value = '';
+                    input.className = "w-11 h-11 border-2 border-wordle-border rounded-lg text-center font-bold uppercase text-lg select-none transition focus:outline-none bg-wordle-empty text-gray-500 hover:border-emerald-500";
+                }
+            });
+        }
+
+        function confirmRowFeedback() {
+            if (!computedStrategy) {
+                alert("Please calculate or upload a strategy JSON file first!");
+                return;
+            }
+
+            if (!assistantState.freeConfirmed) {
+                const key = `${assistantState.freePos}:${assistantState.freeLetter}`;
+                if (!computedStrategy[key]) {
+                    alert(`No word(s) found`);
+                    return;
+                }
+
+                assistantState.freeConfirmed = true;
+                assistantState.currentNode = computedStrategy[key];
+                
+                document.getElementById('free-green-container').classList.add('opacity-50', 'pointer-events-none');
+
+                if (assistantState.currentNode && assistantState.currentNode.guess) {
+                    assistantState.rows.push({
+                        word: assistantState.currentNode.guess,
+                        colors: [0, 0, 0, 0, 0],
+                        confirmed: false
+                    });
+                }
+                renderGrid();
+                return;
+            }
+
+            const currentIdx = assistantState.rows.length - 1;
+            if (currentIdx < 0) return;
+
+            const currentRow = assistantState.rows[currentIdx];
+            if (currentRow.confirmed) return;
+
+            currentRow.confirmed = true;
+            const feedbackKey = currentRow.colors.join('');
+
+            if (feedbackKey === "22222") {
+                renderGrid();
+                setTimeout(() => alert("Target Solution Identified! Strategy Path Complete."), 100);
+                return;
+            }
+
+            if (assistantState.currentNode && assistantState.currentNode.children && assistantState.currentNode.children[feedbackKey]) {
+                assistantState.currentNode = assistantState.currentNode.children[feedbackKey];
+                
+                if (assistantState.currentNode.guess) {
+                    assistantState.rows.push({
+                        word: assistantState.currentNode.guess,
+                        colors: [0, 0, 0, 0, 0],
+                        confirmed: false
+                    });
+                }
+            } else {
+                alert("No word(s) found");
+            }
+
+            renderGrid();
+        }
+
+        function toggleTileColor(rowIdx, tileIdx) {
+            const row = assistantState.rows[rowIdx];
+            if (!row || row.confirmed) return;
+
+            row.colors[tileIdx] = (row.colors[tileIdx] + 1) % 3;
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const gridContainer = document.getElementById('wordle-grid');
+            gridContainer.innerHTML = '';
+
+            assistantState.rows.forEach((rowObj, rIdx) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = "flex gap-2 justify-center";
+
+                rowObj.word.split('').forEach((char, cIdx) => {
+                    const tile = document.createElement('div');
+                    const colorVal = rowObj.colors[cIdx];
+
+                    let colorClasses = "bg-wordle-gray border-wordle-border text-white";
+                    if (colorVal === 1) colorClasses = "bg-wordle-yellow border-wordle-yellow text-white";
+                    if (colorVal === 2) colorClasses = "bg-wordle-green border-wordle-green text-white";
+
+                    tile.className = `w-11 h-11 border-2 rounded-lg flex items-center justify-center text-lg font-bold uppercase select-none transition cursor-pointer ${colorClasses}`;
+                    tile.textContent = char;
+
+                    if (!rowObj.confirmed) {
+                        tile.onclick = () => toggleTileColor(rIdx, cIdx);
+                    } else {
+                        tile.classList.add('opacity-90', 'cursor-default');
+                    }
+
+                    rowDiv.appendChild(tile);
+                });
+
+                gridContainer.appendChild(rowDiv);
+            });
+        }
+
+        function stepBackGrid() {
+            if (!assistantState.freeConfirmed) {
+                assistantState.freeLetter = 'A';
+                assistantState.freePos = 0;
+                renderFreeGreenSelector();
+                return;
+            }
+
+            if (assistantState.rows.length === 0) {
+                assistantState.freeConfirmed = false;
+                document.getElementById('free-green-container').classList.remove('opacity-50', 'pointer-events-none');
+                renderFreeGreenSelector();
+                return;
+            }
+
+            const currentIdx = assistantState.rows.length - 1;
+            const currentRow = assistantState.rows[currentIdx];
+
+            const hasColors = currentRow.colors.some(c => c !== 0);
+            if (hasColors && !currentRow.confirmed) {
+                currentRow.colors = [0, 0, 0, 0, 0];
+                renderGrid();
+                return;
+            }
+
+            assistantState.rows.pop();
+
+            if (assistantState.rows.length === 0) {
+                assistantState.freeConfirmed = false;
+                document.getElementById('free-green-container').classList.remove('opacity-50', 'pointer-events-none');
+                assistantState.currentNode = null;
+            } else {
+                rebuildTreeToCurrentRow();
+            }
+
+            renderGrid();
+        }
+
+        function rebuildTreeToCurrentRow() {
+            const freeKey = `${assistantState.freePos}:${assistantState.freeLetter}`;
+            let node = computedStrategy ? computedStrategy[freeKey] : null;
+
+            for (let i = 0; i < assistantState.rows.length - 1; i++) {
+                const r = assistantState.rows[i];
+                const fbKey = r.colors.join('');
+                if (node && node.children && node.children[fbKey]) {
+                    node = node.children[fbKey];
+                }
+            }
+
+            assistantState.currentNode = node;
+            if (assistantState.rows.length > 0) {
+                assistantState.rows[assistantState.rows.length - 1].confirmed = false;
+            }
+        }
+
+        function resetAssistantGrid() {
+            assistantState = {
+                freePos: 0,
+                freeLetter: 'A',
+                freeConfirmed: false,
+                rows: [],
+                currentNode: null
+            };
+
+            document.getElementById('free-green-container').classList.remove('opacity-50', 'pointer-events-none');
+            initFreeGreenSelector();
+            renderGrid();
+        }
+
+        window.onload = function() {
+            initFreeGreenSelector();
+            fetchDefaultStrategy();
+        };
+    </script>
+</body>
+</html>
