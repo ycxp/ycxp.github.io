@@ -90,20 +90,32 @@
         <section id="section-solver" class="hidden space-y-4">
             <div class="bg-wordle-card p-4 rounded-xl border border-wordle-border space-y-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="bg-wordle-bg p-3 rounded-lg border border-wordle-border">
-                        <div class="flex justify-between items-center mb-1 text-xs font-medium">
+                    <div class="bg-wordle-bg p-3 rounded-lg border border-wordle-border space-y-2">
+                        <div class="flex justify-between items-center text-xs font-medium">
                             <span>Guesses</span>
                             <span id="guess-count" class="text-gray-400">0 words</span>
                         </div>
-                        <input type="file" id="guesses-file" accept=".txt" class="block w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-wordle-border file:text-white hover:file:bg-emerald-600 cursor-pointer"/>
+                        <div class="flex items-center justify-between gap-2">
+                            <label class="px-2.5 py-1 bg-wordle-border hover:bg-gray-700 text-xs rounded cursor-pointer transition text-white font-medium">
+                                Choose file
+                                <input type="file" id="guesses-file" accept=".txt" class="hidden"/>
+                            </label>
+                            <span id="guesses-filename" class="text-xs text-gray-400 truncate">No file chosen</span>
+                        </div>
                     </div>
 
-                    <div class="bg-wordle-bg p-3 rounded-lg border border-wordle-border">
-                        <div class="flex justify-between items-center mb-1 text-xs font-medium">
+                    <div class="bg-wordle-bg p-3 rounded-lg border border-wordle-border space-y-2">
+                        <div class="flex justify-between items-center text-xs font-medium">
                             <span>Answers</span>
                             <span id="answer-count" class="text-gray-400">0 words</span>
                         </div>
-                        <input type="file" id="answers-file" accept=".txt" class="block w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-wordle-border file:text-white hover:file:bg-emerald-600 cursor-pointer"/>
+                        <div class="flex items-center justify-between gap-2">
+                            <label class="px-2.5 py-1 bg-wordle-border hover:bg-gray-700 text-xs rounded cursor-pointer transition text-white font-medium">
+                                Choose file
+                                <input type="file" id="answers-file" accept=".txt" class="hidden"/>
+                            </label>
+                            <span id="answers-filename" class="text-xs text-gray-400 truncate">No file chosen</span>
+                        </div>
                     </div>
                 </div>
 
@@ -374,6 +386,11 @@
                     if (words.length > 0) {
                         validGuesses = words;
                         document.getElementById('guess-count').textContent = `${words.length} words (Auto-loaded)`;
+                        const fnEl = document.getElementById('guesses-filename');
+                        if (fnEl) {
+                            fnEl.textContent = 'guess_words_wordlecup.txt';
+                            fnEl.className = 'text-xs text-emerald-400 truncate font-medium';
+                        }
                     }
                 })
                 .catch(error => {
@@ -406,17 +423,33 @@
         }
 
         document.getElementById('guesses-file').addEventListener('change', function(e) {
-            parseTxtFile(e.target.files[0], words => {
-                validGuesses = words;
-                document.getElementById('guess-count').textContent = `${words.length} words`;
-            });
+            const file = e.target.files[0];
+            if (file) {
+                const fnEl = document.getElementById('guesses-filename');
+                if (fnEl) {
+                    fnEl.textContent = file.name;
+                    fnEl.className = 'text-xs text-emerald-400 truncate font-medium';
+                }
+                parseTxtFile(file, words => {
+                    validGuesses = words;
+                    document.getElementById('guess-count').textContent = `${words.length} words`;
+                });
+            }
         });
 
         document.getElementById('answers-file').addEventListener('change', function(e) {
-            parseTxtFile(e.target.files[0], words => {
-                answerWords = words;
-                document.getElementById('answer-count').textContent = `${words.length} words`;
-            });
+            const file = e.target.files[0];
+            if (file) {
+                const fnEl = document.getElementById('answers-filename');
+                if (fnEl) {
+                    fnEl.textContent = file.name;
+                    fnEl.className = 'text-xs text-emerald-400 truncate font-medium';
+                }
+                parseTxtFile(file, words => {
+                    answerWords = words;
+                    document.getElementById('answer-count').textContent = `${words.length} words`;
+                });
+            }
         });
 
         function parseTxtFile(file, callback) {
