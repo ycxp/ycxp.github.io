@@ -930,6 +930,7 @@ trace ___g_ sulph gy___ snuck ggggg
 trace __g_g sulph __y__ blame _yg_g leave ggggg
 trace __g_g sulph __y__ blame _gg_g glaze ggggg
 trace __g_g sulph __y__ blame _gggg flame ggggg
+trace __g_g sulph __y__ blame ggg_g blade ggg_g blaze ggggg
 trace __g_g sulph __y__ blame ggg_g blade ggggg
 trace __g_g sulph __y__ blame ggggg
 trace __g_g sulph _____ weave __g_g image ggggg
