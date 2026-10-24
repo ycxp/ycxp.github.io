@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimal Dark Video Player</title>
+  <style>
+    /* Barebones dark reset & base styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: #121212;
+      color: #e0e0e0;
+      font-family: sans-serif;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* VIEW 1: UPLOAD PAGE */
+    #uploadView {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      gap: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 300px;
+    }
+
+    label {
+      font-size: 14px;
+    }
+
+    input[type="file"] {
+      background: #1e1e1e;
+      color: #e0e0e0;
+      border: 1px solid #333;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button.btn-confirm {
+      background: #2a2a2a;
+      color: #e0e0e0;
+      border: 1px solid #444;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      width: 300px;
+      margin-top: 8px;
+    }
+
+    button.btn-confirm:hover {
+      background: #383838;
+    }
+
+    /* VIEW 2: PLAYER VIEW */
+    #playerView {
+      display: none; /* hidden until confirmed */
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      padding-bottom: 50px; /* Safe margin at the bottom so native toolbar is fully visible */
+    }
+
+    /* Video stretches to available space while keeping native aspect ratio */
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+      outline: none;
+    }
+
+    /* Top right Close 'X' button */
+    .btn-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 10;
+      background: rgba(18, 18, 18, 0.7);
+      color: #ffffff;
+      border: 1px solid #555;
+      border-radius: 4px;
+      width: 36px;
+      height: 36px;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-close:hover {
+      background: rgba(255, 0, 0, 0.7);
+      border-color: #ff4444;
+    }
+
+    video::cue {
+      background: rgba(0, 0, 0, 0.8);
+      color: #ffffff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- VIEW 1: UPLOAD FORM -->
+  <div id="uploadView">
+    <div class="form-group">
+      <label for="videoInput">Select MP4 Video:</label>
+      <input type="file" id="videoInput" accept="video/mp4,video/webm,video/mkv">
+    </div>
+
+    <div class="form-group">
+      <label for="subInput">Select Subtitles (VTT/SRT, Optional):</label>
+      <input type="file" id="subInput" accept=".vtt,.srt">
+    </div>
+
+    <button class="btn-confirm" id="confirmBtn">Confirm & Load Video</button>
+  </div>
+
+  <!-- VIEW 2: FULLSCREEN PLAYER -->
+  <div id="playerView">
+    <button class="btn-close" id="closeBtn" title="Close video & clear memory">&times;</button>
+    <video id="videoPlayer" controls></video>
+  </div>
+
+  <script>
+    // UI Elements
+    const uploadView = document.getElementById('uploadView');
+    const playerView = document.getElementById('playerView');
+    const videoInput = document.getElementById('videoInput');
+    const subInput = document.getElementById('subInput');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const closeBtn = document.getElementById('closeBtn');
+    const videoPlayer = document.getElementById('videoPlayer');
+
+    // State for Object URLs and tracking
+    let activeVideoUrl = null;
+    let activeSubUrl = null;
+    let currentStorageKey = null;
+
+    // Helper: Generate persistent storage key per video file
+    function getStorageKey(file) {
+      return `vid_pos_${file.name}_${file.size}`;
+    }
+
+    // Save playback position continuously during playback or pause
+    function savePlaybackPosition() {
+      if (currentStorageKey && videoPlayer.currentTime > 0) {
+        localStorage.setItem(currentStorageKey, videoPlayer.currentTime);
+      }
+    }
+
+    // Event Listeners for tracking timestamp
+    videoPlayer.addEventListener('pause', savePlaybackPosition);
+    videoPlayer.addEventListener('timeupdate', savePlaybackPosition);
+    window.addEventListener('beforeunload', savePlaybackPosition);
+
+    // Resume position on metadata load
+    videoPlayer.addEventListener('loadedmetadata', () => {
+      if (!currentStorageKey) return;
+      const savedTime = localStorage.getItem(currentStorageKey);
+      if (savedTime && parseFloat(savedTime) < videoPlayer.duration) {
+        videoPlayer.currentTime = parseFloat(savedTime);
+      }
+    });
+
+    // Transition from View 1 -> View 2
+    confirmBtn.addEventListener('click', () => {
+      const videoFile = videoInput.files[0];
+      if (!videoFile) {
+        alert('Please select an MP4 video file first.');
+        return;
+      }
+
+      // Generate unique key for this video file
+      currentStorageKey = getStorageKey(videoFile);
+
+      // Create object URL for MP4
+      activeVideoUrl = URL.createObjectURL(videoFile);
+      videoPlayer.src = activeVideoUrl;
+
+      // Check optional subtitle file
+      const subFile = subInput.files[0];
+      if (subFile) {
+        const ext = subFile.name.split('.').pop().toLowerCase();
+        if (ext === 'srt') {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const vttText = convertSrtToVtt(e.target.result);
+            const blob = new Blob([vttText], { type: 'text/vtt' });
+            attachSubtitleTrack(blob);
+          };
+          reader.readAsText(subFile);
+        } else {
+          attachSubtitleTrack(subFile);
+        }
+      }
+
+      // Switch views
+      uploadView.style.display = 'none';
+      playerView.style.display = 'block';
+
+      // Auto-play video
+      videoPlayer.play().catch(() => {});
+    });
+
+    // Close Button Action: Completely wipe storage, clear cache, & return to View 1
+    closeBtn.addEventListener('click', clearAndExit);
+
+    function clearAndExit() {
+      // Completely remove saved timestamp from localStorage when 'X' is clicked
+      if (currentStorageKey) {
+        localStorage.removeItem(currentStorageKey);
+      }
+
+      // Pause playback
+      videoPlayer.pause();
+
+      // Revoke Object URLs to clear browser cache memory
+      if (activeVideoUrl) {
+        URL.revokeObjectURL(activeVideoUrl);
+        activeVideoUrl = null;
+      }
+      if (activeSubUrl) {
+        URL.revokeObjectURL(activeSubUrl);
+        activeSubUrl = null;
+      }
+
+      // Remove video source & text tracks
+      videoPlayer.removeAttribute('src');
+      videoPlayer.load();
+      const tracks = videoPlayer.querySelectorAll('track');
+      tracks.forEach(track => track.remove());
+
+      // Reset storage key & file inputs
+      currentStorageKey = null;
+      videoInput.value = '';
+      subInput.value = '';
+
+      // Switch back to upload view
+      playerView.style.display = 'none';
+      uploadView.style.display = 'flex';
+    }
+
+    // Convert SRT to WebVTT format
+    function convertSrtToVtt(srtText) {
+      return "WEBVTT\n\n" + srtText.replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g, '$1.$2');
+    }
+
+    // Dynamic track insertion
+    function attachSubtitleTrack(fileOrBlob) {
+      if (activeSubUrl) URL.revokeObjectURL(activeSubUrl);
+      activeSubUrl = URL.createObjectURL(fileOrBlob);
+
+      const track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.label = 'Subtitles';
+      track.srclang = 'en';
+      track.src = activeSubUrl;
+      track.default = true;
+
+      videoPlayer.appendChild(track);
+
+      if (videoPlayer.textTracks && videoPlayer.textTracks[0]) {
+        videoPlayer.textTracks[0].mode = 'showing';
+      }
+    }
+  </script>
+</body>
+</html>
