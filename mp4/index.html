@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Minimal Dark Video Player</title>
+  
+  <!-- PWA & Mobile Web App Settings (No Icons) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#121212">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <style>
     /* Barebones dark reset & base styles */
     * {
@@ -142,6 +150,15 @@
   </div>
 
   <script>
+    // Register Service Worker for Mobile PWA installation
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('Service Worker registered:', reg.scope))
+          .catch((err) => console.error('Service Worker registration failed:', err));
+      });
+    }
+
     // UI Elements
     const uploadView = document.getElementById('uploadView');
     const playerView = document.getElementById('playerView');
