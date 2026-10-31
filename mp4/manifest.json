@@ -1,9 +1,0 @@
-{
-  "name": "Minimal Dark Video Player",
-  "short_name": "Video Player",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#121212",
-  "theme_color": "#121212",
-  "orientation": "any"
-}
